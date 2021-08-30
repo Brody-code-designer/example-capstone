@@ -3,6 +3,7 @@ version: "3"
 services:
   sql:
     build: ./sql
+    platform: linux/x86_64
     volumes:
       - tweeter:/var/lib/mysql
     env_file:
@@ -17,6 +18,7 @@ services:
 #      - 80:80
   node:
     build: backend
+    platform: linux/x86_64
     env_file:
       - .env
     ports:

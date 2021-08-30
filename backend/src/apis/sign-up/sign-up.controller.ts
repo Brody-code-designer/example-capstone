@@ -3,15 +3,17 @@ import {Request, Response} from 'express';
 import {setActivationToken, setHash} from '../../utils/auth.utils';
 import {Profile} from "../../utils/interfaces/Profile";
 import {Status} from "../../utils/interfaces/Status";
-import MailComposer from "nodemailer/lib/mail-composer";
-import {insertProfile} from "../../utils/profile/insertProfile";
 
-const mailgun = require("mailgun-js")
+import {insertProfile} from "../../utils/profile/insertProfile";
+import formData from "form-data"
+import Mailgun from "mailgun.js"
+import MailComposer from 'nodemailer/lib/mail-composer';
 
 // Interfaces (represent the DB model and types of the columns associated with a specific DB table)
 
-
 export async function signupProfileController(request: Request, response: Response) : Promise<Response|undefined>  {
+
+
   try {
 
 
@@ -31,7 +33,6 @@ export async function signupProfileController(request: Request, response: Respon
       from: `Mailgun Sandbox <postmaster@${process.env.MAILGUN_DOMAIN}>`,
       to: profileEmail,
       subject: "One step closer to Sticky Head -- Account Activation",
-      text: 'Test email text',
       html: message
     }
 
@@ -49,26 +50,33 @@ export async function signupProfileController(request: Request, response: Respon
 
     const emailComposer: MailComposer = new MailComposer(mailgunMessage)
 
-    emailComposer.compile().build((error: any, message: Buffer) => {
-      const mg = mailgun({apiKey: process.env.MAILGUN_API_KEY, domain: process.env.MAILGUN_DOMAIN});
+    emailComposer.compile().build( (error: any, message: Buffer) => {
+      try {
+        const mailgun = new Mailgun(formData)
+        const key: string = process.env.MAILGUN_API_KEY as string
+        const mailgunClient = mailgun.client({username: "api", key})
 
-      console.log(message.toString("ascii"))
-      const compiledEmail = {
-        to: profileEmail,
-        message: message.toString("ascii")
+        const compiledEmail = {
+          to: profileEmail,
+          message: message.toString("ascii"),
+          from: `do-not-reply@${process.env.MAILGUN_DOMAIN}`
+        }
+
+        const status: Status = {
+          status: 200,
+          message: "Profile successfully created please check your email.",
+          data: null
+        };
+        mailgunClient.messages.create(process.env.MAILGUN_DOMAIN, compiledEmail).then(()=> response.json(status))
+
+
+
+      } catch (error) {
+        throw new error
+
       }
 
-      const status: Status = {
-        status: 200,
-        message: "Profile successfully created please check your email.",
-        data: null
-      };
-      mg.messages().sendMime(compiledEmail, (sendError: any, body: any) => {
-        if (sendError) {
-          return response.json({status:418, data:null, message:"error sending email"})
-        }
-        return response.json(status);
-      });
+
     })
   } catch (error) {
 
